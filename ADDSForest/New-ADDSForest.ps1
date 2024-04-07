@@ -44,7 +44,6 @@
 .EXAMPLE
   New-ADDSForest -DomainName "contoso.com" -DomainNetBIOSName "CONTOSO" -DomainMode -ForestMode -DatabasePath "D:\" -LogPath E:\ -SysvolPath "F:\" -KeyVaultName "ContosoKeyVault" -ResourceGroupName "ContosoResourceGroup" -SecretName "safeModeAdministratorPassword"
 #>
-
 $ErrorActionPreference = "Stop"
 $Global:RegisteredSecretVault = $null
 $Global:AzureConnection = $null
@@ -228,7 +227,7 @@ function New-ADForest {
       New-ADDSForest @PSBoundParameters
     }
     else{
-      Write-Host "Operation cancelled"
+      Write-Output "Operation cancelled"
     }
   }
   catch {
