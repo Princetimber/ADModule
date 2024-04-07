@@ -1,0 +1,25 @@
+{
+  "Install-RequiredModule": {
+    "ModuleName": ["az.keyvault", "Microsoft.PowerShell.SecretManagement"]
+  },
+  "Install-RequiredADModule": {
+    "ModuleName": "ActiveDirectory"
+  },
+  "New-ADDSForest": {
+    "Force": true,
+    "DomainMode": "WinThreshold",
+    "ForestMode": "WinThreshold",
+    "DatabasePath": "$env:SystemDrive\\Windows\\",
+    "LogPath": "$env:SystemDrive\\Windows\\NTDS\\",
+    "SysvolPath": "$env:SystemDrive\\Windows\\"
+  },
+  "Add-RegisteredSecretVault": {
+    "Confirm": false,
+    "ModuleName": "az.keyvault",
+    "Name": "(Get-Vault).VaultName",
+    "VaultParameters": {
+      "AZKVaultName": "(Get-Vault).VaultName",
+      "SubscriptionId": "(Get-AzContext).Subscription.Id"
+    }
+  }
+}
