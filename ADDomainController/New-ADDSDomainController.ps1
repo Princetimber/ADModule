@@ -171,6 +171,34 @@ function Add-RegisteredSecretVault {
     Write-Output "Secret vault $Name is already registered"
   }
 }
+function Remove-RegisteredSecretVault {
+  param(
+    [string]$Name = (Get-Vault).VaultName
+  )
+  $context =(Get-SecretVault -Name $Name).Name
+  $Global:UnregisterSecretVault = $context
+  if($Global:UnregisterSecretVault){
+    try {
+      Unregister-SecretVault -Name $Name -Confirm:$false
+      write-output "Secret vault $Name unregistered successfully"
+    }
+    catch {
+      Write-Error "Failed to unregister the secret vault. Please see the error message below.:$_"
+    }
+  }
+}
+function Disconnect-FromAzure {
+  try {
+    if($Global:AzureConnection){
+      Disconnect-AzAccount -Confirm:$false
+      $Global:AzureConnection = $null
+      write-output "Disconnected from Azure"
+    }
+  }
+  catch {
+    Write-Error "Failed to disconnect from Azure. Please see the error message below.:$_"
+  }
+}
 function Add-ADDomainController {
   param(
     [string]$DomainName,
