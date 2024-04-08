@@ -277,11 +277,4 @@ function New-ADDSDomainController{
   catch {
     Write-Error "Failed to add the domain controller. Please see the error message below.:$_"
   }
-  finally {
-    if($null -ne $Global:RegisteredSecretVault){
-      Unregister-SecretVault -Name (Get-Vault).VaultName -Confirm:$false
-      $Global:RegisteredSecretVault = $null
-    }
-    Disconnect-AzAccount -Confirm:$false
-  }
 }
