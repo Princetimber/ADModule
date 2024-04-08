@@ -47,8 +47,7 @@
 $ErrorActionPreference = "Stop"
 $Global:RegisteredSecretVault = $null
 $Global:AzureConnection = $null
-$DefaultParameters = Get-Content -Path $PSScriptRoot\DefaultParameters.json | ConvertFrom-Json
-$PSDefaultParameterValues = $DefaultParameters.PSDefaultParameterValues
+$PSDefaultParameterValues = (Get-Content -Path $PSScriptRoot\DefaultParameters.json | ConvertFrom-Json).PSDefaultParameterValues
 function Install-RequiredModule {
   param(
     [string[]]$Name
