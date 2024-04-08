@@ -53,7 +53,7 @@ function Install-RequiredModule {
   param(
     [string[]]$Name
   )
-  $moduleName | ForEach-Object {
+  $Name | ForEach-Object {
     if(-not (Get-Module -Name $_ -ListAvailable)){
       try {
         Set-PSResourceRepository -Name PSGallery -Trusted
