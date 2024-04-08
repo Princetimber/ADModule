@@ -111,15 +111,21 @@ function Test-Paths {
 }
 function Connect-ToAzure {
   if($null -eq $Global:AzureConnection){
-    Connect-AzAccount -UseDeviceAuthentication
-    $timeout = New-TimeSpan -Seconds 90
-    $stopWatch = [System.Diagnostics.Stopwatch]::StartNew()
-    while ($stopWatch.Elapsed -lt $timeout) {
-      $Global:AzureConnection = (Get-AzContext -ErrorAction SilentlyContinue).Account
-      if($Global:AzureConnection){
-        break
+    try {
+      Connect-AzAccount -UseDeviceAuthentication
+      $timeout = New-TimeSpan -Seconds 90
+      $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+      while($stopwatch.Elapsed -lt $timeout){
+        $context = (Get-AzContext -ErrorAction SilentlyContinue).Account
+        $Global:AzureConnection = $context
+        if($Global:AzureConnection){
+          write-output "Already connected to Azure."
+          break
+        }
       }
-      Start-Sleep -Seconds 5     
+    }
+    catch {
+      Write-Error "Failed to connect to Azure. Please see the error message below.:$_"
     }
   }
 }
