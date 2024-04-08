@@ -159,6 +159,7 @@ function Add-RegisteredSecretVault {
       $secretContext = (Get-SecretVault -Name $Name).Name
       $Global:RegisteredSecretVault = $secretContext
       if($Global:RegisteredSecretVault){
+        write-output "Secret vault $Name registered successfully"
         return
       }
     }
