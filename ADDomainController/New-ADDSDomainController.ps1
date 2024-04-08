@@ -156,6 +156,8 @@ function Add-RegisteredSecretVault {
   if($null -eq $Global:RegisteredSecretVault){
     try {
       Register-SecretVault -Name $Name -ModuleName $ModuleName -VaultParameters $VaultParameters -Confirm:$false
+      $secretContext = (Get-SecretVault -Name $Name).Name
+      $Global:RegisteredSecretVault = $secretContext
       if($Global:RegisteredSecretVault){
         return
       }
