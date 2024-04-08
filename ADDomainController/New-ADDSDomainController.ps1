@@ -250,6 +250,10 @@ function Add-ADDomainController {
   Add-keys -hash $param -keys $keys
   # add the domain controller
   Install-ADDSDomainController @param
+  # remove the registered secret vault
+  Remove-RegisteredSecretVault
+  # disconnect from azure
+  Disconnect-FromAzure
 }
 function New-ADDSDomainController{
   [CmdletBinding(SupportsShouldProcess = $true)]
