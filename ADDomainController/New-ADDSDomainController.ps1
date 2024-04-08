@@ -47,10 +47,16 @@
 $ErrorActionPreference = "Stop"
 $Global:RegisteredSecretVault = $null
 $Global:AzureConnection = $null
-$PSDefaultParameterValues = (Get-Content -Path $PSScriptRoot\DefaultParameters.json | ConvertFrom-Json).PSDefaultParameterValues
+$PSDefaultParameterValues = @{
+  'New-ADDSDomainController:SiteName' = 'Default-First-Site-Name'
+  'New-ADDSDomainController:DatabasePath' = "$env:SystemDrive\Windows\"
+  'New-ADDSDomainController:LogPath' = "$env:SystemDrive\Windows\NTDS\"
+  'New-ADDSDomainController:SysvolPath' = "$env:SystemDrive\Windows\"
+  'New-ADDSDomainController:Force' = $true
+}
 function Install-RequiredModule {
   param(
-    [string[]]$Name
+    [string[]]$Name = @( 'Microsoft.PowerShell.SecretManagement', 'az.keyvault')
   )
   $Name | ForEach-Object {
     if(-not (Get-Module -Name $_ -ListAvailable)){
@@ -69,7 +75,7 @@ function Install-RequiredModule {
   }
 }
 function Install-RequiredADModule {
-  [string]$Name 
+  [string]$Name = 'AD-Domain-Services'
   if (-not (Get-WindowsFeature -Name $Name | Where-Object { $_.Installed -eq $true })) {
     try {
       install-WindowsFeature -Name $Name -IncludeManagementTools
@@ -119,15 +125,33 @@ function Connect-ToAzure {
     }
   }
 }
+function Get-Vault {
+  param(
+    [string]$keyVaultName,
+    [string]$ResourceGroupName
+  )
+  Get-AzKeyVault @PSBoundParameters
+}
+funtion Add-AdminCredential{
+  param(
+    [string]$DomainAdminUser,
+    [string]$DomainAdminSecretName
+  )
+  [securestring]$DomainAdminPassword = Get-Secret -Name $DomainAdminSecretName -Vault $vaultName
+  New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainAdminUser, $DomainAdminPassword
+}
 function Add-RegisteredSecretVault {
   param(
-    [string]$Name,
-    [string]$ModuleName,
-    [hashtable]$VaultParameters
+    [string]$Name = (Get-Vault).VaultName,
+    [string]$ModuleName = "az.keyvault",
+    [hashtable]$VaultParameters = @{
+      AZKVaultName = $Name
+      SubscriptionId = (Get-AzContext).Subscription.Id
+    }
   )
   if($null -eq $Global:RegisteredSecretVault){
     try {
-      Register-SecretVault @PSBoundParameters
+      Register-SecretVault -Name $Name -ModuleName $ModuleName -VaultParameters $VaultParameters -Confirm:$false
       if($Global:RegisteredSecretVault){
         return
       }
@@ -140,28 +164,13 @@ function Add-RegisteredSecretVault {
     Write-Output "Secret vault $Name is already registered"
   }
 }
-function Get-Vault {
-  param(
-    [string]$keyVaultName,
-    [string]$ResourceGroupName
-  )
-  Get-AzKeyVault @PSBoundParameters
-}
-funtion Add-AdminCredential{
-  param(
-    [string]$DomainAdminUser,
-    [string]$DomainAdminSecretName,
-    [securestring]$DomainAdminPassword
-  )
-  New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainAdminUser, $DomainAdminPassword
-}
 function Add-ADDomainController {
   param(
     [string]$DomainName,
-    [string]$SiteName,
-    [string]$DatabasePath,
-    [string]$LogPath,
-    [string]$SysvolPath,
+    [string]$SiteName = 'Default-First-Site-Name',
+    [string]$DatabasePath = "$env:SystemDrive\Windows\",
+    [string]$LogPath = "$env:SystemDrive\Windows\NTDS\",
+    [string]$SysvolPath = "$env:SystemDrive\Windows\",
     [string]$KeyVaultName,
     [string]$ResourceGroupName,
     [string]$SafeModeAdminSecretName,
@@ -191,7 +200,7 @@ function Add-ADDomainController {
   }
   # retrieve the safe mode admin password
   $vaultName = (Get-Vault).VaultName
-  $safeModeAdministratorPassword = Get-Secret -Name $SafeModeAdminSecretName -Vault $vaultName
+  [securestring]$safeModeAdministratorPassword = Get-Secret -Name $SafeModeAdminSecretName -Vault $vaultName
   $param = $commonParams.Clone()
   $keys = @{
     SafeModeAdministratorPassword = $safeModeAdministratorPassword
@@ -211,10 +220,10 @@ function New-ADDSDomainController{
   [CmdletBinding(SupportsShouldProcess = $true)]
   param(
     [Parameter (Mandatory = $true)][string]$DomainName,
-    [Parameter (Mandatory = $false)][string]$SiteName,
-    [Parameter (Mandatory = $false)][string]$DatabasePath,
-    [Parameter (Mandatory = $false)][string]$LogPath,
-    [Parameter (Mandatory = $false)][string]$SysvolPath,
+    [Parameter (Mandatory = $false)][string]$SiteName = 'Default-First-Site-Name',
+    [Parameter (Mandatory = $false)][string]$DatabasePath = "$env:SystemDrive\Windows\",
+    [Parameter (Mandatory = $false)][string]$LogPath = "$env:SystemDrive\Windows\NTDS\",
+    [Parameter (Mandatory = $false)][string]$SysvolPath = "$env:SystemDrive\Windows\",
     [Parameter (Mandatory = $true)][string]$KeyVaultName,
     [Parameter (Mandatory = $true)][string]$ResourceGroupName,
     [Parameter (Mandatory = $true)][string]$SafeModeAdminSecretName,

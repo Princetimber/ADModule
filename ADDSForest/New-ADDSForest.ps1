@@ -47,10 +47,17 @@
 $ErrorActionPreference = "Stop"
 $Global:RegisteredSecretVault = $null
 $Global:AzureConnection = $null
-$PSDefaultParameterValues = (Get-Content -Path $PSScriptRoot\DefaultParameters.json | ConvertFrom-Json).PSDefaultParameterValues
+$PSDefaultParameterValues = @{
+  'New-ADDSForest:DomainMode' = 'WinThreshold'
+  'New-ADDSForest:ForestMode' = 'WinThreshold'
+  'New-ADDSForest:DatabasePath' = "$env:SystemDrive\Windows\"
+  'New-ADDSForest:LogPath' = "$env:SystemDrive\Windows\NTDS\"
+  'New-ADDSForest:SysvolPath' = "$env:SystemDrive\Windows\"
+  'New-ADDSForest:Force' = $true
+}
 function Install-RequiredModule {
   param(
-    [string[]]$Name
+    [string[]]$Name = @( 'Microsoft.PowerShell.SecretManagement', 'az.keyvault')
   )
   $Name | ForEach-Object {
     if(-not (Get-Module -Name $_ -ListAvailable)){
@@ -69,7 +76,7 @@ function Install-RequiredModule {
   }
 }
 function Install-RequiredADModule {
-  [string]$Name
+  [string]$Name = 'AD-Domain-Services'
   if (-not (Get-WindowsFeature -Name $Name | Where-Object { $_.Installed -eq $true })) {
     try {
       install-WindowsFeature -Name $Name -IncludeManagementTools
@@ -119,15 +126,25 @@ function Connect-ToAzure {
     }
   }
 }
+function Get-Vault {
+  param(
+    [string]$keyVaultName,
+    [string]$ResourceGroupName
+  )
+  Get-AzKeyVault @PSBoundParameters
+}
 function Add-RegisteredSecretVault {
   param(
-    [string]$Name,
-    [string]$ModuleName,
-    [hashtable]$VaultParameters
+    [string]$Name = (Get-Vault).VaultName,
+    [string]$ModuleName ="az.keyvault",
+    [hashtable]$VaultParameters = @{
+      AZKVaultName = $Name
+      SubscriptionId = (Get-AzContext).Subscription.Id
+    }
   )
   if($null -eq $Global:RegisteredSecretVault){
     try {
-      Register-SecretVault @PSBoundParameters
+      Register-SecretVault -Name $Name -ModuleName $ModuleName -VaultParameters $VaultParameters -Confirm:$false
       if($Global:RegisteredSecretVault){
         return
       }
@@ -140,22 +157,15 @@ function Add-RegisteredSecretVault {
     Write-Output "Secret vault $Name is already registered"
   }
 }
-function Get-Vault {
-  param(
-    [string]$keyVaultName,
-    [string]$ResourceGroupName
-  )
-  Get-AzKeyVault @PSBoundParameters
-}
 function New-ADDSForest {
   param(
     [string]$DomainName,
     [string]$DomainNetBiosName,
-    [string]$DomainMode,
-    [string]$ForestMode,
-    [string]$DatabasePath,
-    [string]$LogPath,
-    [string]$SysvolPath,
+    [string]$DomainMode = 'WinThreshold',
+    [string]$ForestMode = 'WinThreshold',
+    [string]$DatabasePath = "$env:SystemDrive\Windows\",
+    [string]$LogPath = "$env:SystemDrive\Windows\NTDS\",
+    [string]$SysvolPath = "$env:SystemDrive\Windows\",
     [string]$KeyVaultName,
     [string]$ResourceGroupName,
     [string]$secretName
@@ -186,7 +196,7 @@ function New-ADDSForest {
   }
   # retrieve the safe mode administrator password
   $vaultName = (Get-Vault).VaultName
-  $safeModeAdministratorPassword = Get-Secret -Name $secretName -Vault $vaultName
+  [securestring]$safeModeAdministratorPassword = Get-Secret -Name $secretName -Vault $vaultName
   $param = $commonParams.Clone()
   $keys = @{
     SafeModeAdministratorPassword = $safeModeAdministratorPassword
@@ -203,15 +213,15 @@ function New-ADForest {
     [Parameter(Mandatory = $true)]
     [string]$DomainNetBiosName,
     [Parameter(Mandatory = $false)]
-    [string]$DomainMode,
+    [string]$DomainMode = 'WinThreshold',
     [Parameter(Mandatory = $false)]
-    [string]$ForestMode,
+    [string]$ForestMode = 'WinThreshold',
     [Parameter(Mandatory = $false)]
-    [string]$DatabasePath,
+    [string]$DatabasePath = "$env:SystemDrive\Windows\",
     [Parameter(Mandatory = $false)]
-    [string]$LogPath,
+    [string]$LogPath = "$env:SystemDrive\Windows\NTDS\",
     [Parameter(Mandatory = $false)]
-    [string]$SysvolPath,
+    [string]$SysvolPath = "$env:SystemDrive\Windows\",
     [Parameter(Mandatory = $true)]
     [string]$KeyVaultName,
     [Parameter(Mandatory = $true)]
