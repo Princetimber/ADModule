@@ -45,8 +45,6 @@
 #>
 
 $ErrorActionPreference = "Stop"
-$Global:RegisteredSecretVault = $null
-$Global:AzureConnection = $null
 $PSDefaultParameterValues = @{
   'New-ADDSDomainController:SiteName' = 'Default-First-Site-Name'
   'New-ADDSDomainController:DatabasePath' = "$env:SystemDrive\Windows\"
