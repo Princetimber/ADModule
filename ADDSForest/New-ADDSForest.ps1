@@ -45,8 +45,6 @@
   New-ADDSForest -DomainName "contoso.com" -DomainNetBIOSName "CONTOSO" -DomainMode -ForestMode -DatabasePath "D:\" -LogPath E:\ -SysvolPath "F:\" -KeyVaultName "ContosoKeyVault" -ResourceGroupName "ContosoResourceGroup" -SecretName "safeModeAdministratorPassword"
 #>
 $ErrorActionPreference = "Stop"
-$Global:RegisteredSecretVault = $null
-$Global:AzureConnection = $null
 $PSDefaultParameterValues = @{
   'New-ADDSForest:DomainMode' = 'WinThreshold'
   'New-ADDSForest:ForestMode' = 'WinThreshold'
@@ -114,15 +112,21 @@ function Test-Paths {
 }
 function Connect-ToAzure {
   if($null -eq $Global:AzureConnection){
-    Connect-AzAccount -UseDeviceAuthentication
-    $timeout = New-TimeSpan -Seconds 90
-    $stopWatch = [System.Diagnostics.Stopwatch]::StartNew()
-    while ($stopWatch.Elapsed -lt $timeout) {
-      $Global:AzureConnection = (Get-AzContext -ErrorAction SilentlyContinue).Account
-      if($Global:AzureConnection){
-        break
+    try {
+      Connect-AzAccount -UseDeviceAuthentication
+      $timeout = New-TimeSpan -Seconds 90
+      $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+      while($stopwatch.Elapsed -lt $timeout){
+        $context = (Get-AzContext -ErrorAction SilentlyContinue).Account
+        $Global:AzureConnection = $context
+        if($Global:AzureConnection){
+          write-output "Already connected to Azure."
+          break
+        }
       }
-      Start-Sleep -Seconds 5     
+    }
+    catch {
+      Write-Error "Failed to connect to Azure. Please see the error message below.:$_"
     }
   }
 }
@@ -136,7 +140,7 @@ function Get-Vault {
 function Add-RegisteredSecretVault {
   param(
     [string]$Name = (Get-Vault).VaultName,
-    [string]$ModuleName ="az.keyvault",
+    [string]$ModuleName = "az.keyvault",
     [hashtable]$VaultParameters = @{
       AZKVaultName = $Name
       SubscriptionId = (Get-AzContext).Subscription.Id
@@ -145,7 +149,10 @@ function Add-RegisteredSecretVault {
   if($null -eq $Global:RegisteredSecretVault){
     try {
       Register-SecretVault -Name $Name -ModuleName $ModuleName -VaultParameters $VaultParameters -Confirm:$false
+      $secretContext = (Get-SecretVault -Name $Name).Name
+      $Global:RegisteredSecretVault = $secretContext
       if($Global:RegisteredSecretVault){
+        write-output "Secret vault $Name registered successfully"
         return
       }
     }
@@ -155,6 +162,34 @@ function Add-RegisteredSecretVault {
   }
   else{
     Write-Output "Secret vault $Name is already registered"
+  }
+}
+function Remove-RegisteredSecretVault {
+  param(
+    [string]$Name = (Get-Vault).VaultName
+  )
+  $context =(Get-SecretVault -Name $Name).Name
+  $Global:UnregisterSecretVault = $context
+  if($Global:UnregisterSecretVault){
+    try {
+      Unregister-SecretVault -Name $Name -Confirm:$false
+      write-output "Secret vault $Name unregistered successfully"
+    }
+    catch {
+      Write-Error "Failed to unregister the secret vault. Please see the error message below.:$_"
+    }
+  }
+}
+function Disconnect-FromAzure {
+  try {
+    if($Global:AzureConnection){
+      Disconnect-AzAccount -Confirm:$false
+      $Global:AzureConnection = $null
+      write-output "Disconnected from Azure"
+    }
+  }
+  catch {
+    Write-Error "Failed to disconnect from Azure. Please see the error message below.:$_"
   }
 }
 function New-ADDSForest {
@@ -204,6 +239,10 @@ function New-ADDSForest {
   Add-keys -hash $param -keys $keys
   # create the new AD Forest
   Install-ADDSForest @param
+  # remove the registered secret vault
+  Remove-RegisteredSecretVault
+  # disconnect from Azure
+  Disconnect-FromAzure
 }
 function New-ADForest {
   [CmdletBinding(SupportsShouldProcess  = $true)]
@@ -241,13 +280,5 @@ function New-ADForest {
   }
   catch {
     throw "Failed to create the new AD Forest. Please see the error message below.:$_"
-  }
-  finally {
-    # unregister the secret vault
-    if($null -ne $Global:RegisteredSecretVault){
-      Unregister-SecretVault -Name (Get-Vault).VaultName -Confirm:$false
-      $Global:RegisteredSecretVault = $null
-    }
-    Disconnect-AzAccount -Confirm:$false
   }
 }
