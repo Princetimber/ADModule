@@ -1,9 +1,9 @@
 {
   "Install-RequiredModule": {
-    "ModuleName": ["az.keyvault", "Microsoft.PowerShell.SecretManagement"]
+    "Name": ["az.keyvault", "Microsoft.PowerShell.SecretManagement"]
   },
   "Install-RequiredADModule": {
-    "ModuleName": "ActiveDirectory"
+    "Name": "ActiveDirectory"
   },
   "New-ADDSForest": {
     "Force": true,

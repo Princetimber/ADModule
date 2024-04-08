@@ -51,9 +51,9 @@ $DefaultParameters = Get-Content -Path $PSScriptRoot\DefaultParameters.json | Co
 $PSDefaultParameterValues = $DefaultParameters.PSDefaultParameterValues
 function Install-RequiredModule {
   param(
-    [string[]]$moduleName
+    [string[]]$Name
   )
-  $moduleName | ForEach-Object {
+  $Name | ForEach-Object {
     if(-not (Get-Module -Name $_ -ListAvailable)){
       try {
         Set-PSResourceRepository -Name PSGallery -Trusted
@@ -70,10 +70,10 @@ function Install-RequiredModule {
   }
 }
 function Install-RequiredADModule {
-  [string]$ModuleName
-  if (-not (Get-WindowsFeature -Name $ModuleName | Where-Object { $_.Installed -eq $true })) {
+  [string]$Name
+  if (-not (Get-WindowsFeature -Name $Name | Where-Object { $_.Installed -eq $true })) {
     try {
-      install-WindowsFeature -Name $ModuleName -IncludeManagementTools
+      install-WindowsFeature -Name $Name -IncludeManagementTools
     }
     catch {
       throw "Failed to install the required module $ModuleName. Please see the error message below.:$_"
