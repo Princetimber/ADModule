@@ -102,7 +102,7 @@ function New-EnvPath {
 }
 function Test-Paths {
   param(
-    [string[]]$Paths 
+    [string[]]$Paths
   )
   $paths | ForEach-Object {
     if (-not (Test-Path -Path $_)) {
